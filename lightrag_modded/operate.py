@@ -411,7 +411,7 @@ async def local_query(
             print(f"JSON parsing error: {e}")
             return PROMPTS["fail_response"]
     if keywords:
-        context = await _build_local_query_context(
+        context, chunks_used = await _build_local_query_context(
             keywords,
             knowledge_graph_inst,
             entities_vdb,
@@ -497,9 +497,9 @@ async def _build_local_query_context(
         )
     relations_context = list_of_list_to_csv(relations_section_list)
 
-    text_units_section_list = [["id", "content"]]
+    text_units_section_list = [["id", "content","parent_metadata"]]
     for i, t in enumerate(use_text_units):
-        text_units_section_list.append([i, t["content"]])
+        text_units_section_list.append([i, t["content"],t["parent_metadata"]])
     text_units_context = list_of_list_to_csv(text_units_section_list)
     return f"""
 -----Entities-----
@@ -514,7 +514,7 @@ async def _build_local_query_context(
 ```csv
 {text_units_context}
 ```
-"""
+""", use_text_units
 
 async def _find_most_related_text_unit_from_entities(
     node_datas: list[dict],
@@ -568,6 +568,7 @@ async def _find_most_related_text_unit_from_entities(
     all_text_units = sorted(
         all_text_units, key=lambda x: (x["order"], -x["relation_counts"])
     )
+    logger.info(f"All text units (local):\n{all_text_units}")
     all_text_units = truncate_list_by_token_size(
         all_text_units,
         key=lambda x: x["data"]["content"],
@@ -745,9 +746,9 @@ async def _build_global_query_context(
         )
     entities_context = list_of_list_to_csv(entites_section_list)
 
-    text_units_section_list = [["id", "content"]]
+    text_units_section_list = [["id", "content", "parent_metadata"]]
     for i, t in enumerate(use_text_units):
-        text_units_section_list.append([i, t["content"]])
+        text_units_section_list.append([i, t["content"],t["parent_metadata"]])
     text_units_context = list_of_list_to_csv(text_units_section_list)
 
     return f"""
@@ -763,7 +764,7 @@ async def _build_global_query_context(
 ```csv
 {text_units_context}
 ```
-"""
+""", use_text_units
 
 async def _find_most_related_entities_from_relationships(
     edge_datas: list[dict],
@@ -830,6 +831,9 @@ async def _find_related_text_unit_from_relationships(
         key=lambda x: x["data"]["content"],
         max_token_size=query_param.max_token_for_text_unit,
     )
+
+    # logger.info(f"All text units (global):\n{all_text_units}")
+    
     all_text_units: list[TextChunkSchema] = [t["data"] for t in all_text_units]
 
     return all_text_units
@@ -873,7 +877,7 @@ async def hybrid_query(
             return PROMPTS["fail_response"]
 
     if ll_keywords:
-        low_level_context = await _build_local_query_context(
+        low_level_context, low_level_chunks_used = await _build_local_query_context(
             ll_keywords,
             knowledge_graph_inst,
             entities_vdb,
@@ -882,7 +886,7 @@ async def hybrid_query(
         )
 
     if hl_keywords:
-        high_level_context = await _build_global_query_context(
+        high_level_context, high_level_chunks_used = await _build_global_query_context(
             hl_keywords,
             knowledge_graph_inst,
             entities_vdb,
@@ -893,8 +897,10 @@ async def hybrid_query(
 
     context = combine_contexts(high_level_context, low_level_context)
 
+    chunks_used = high_level_chunks_used + low_level_chunks_used
+    
     if query_param.only_need_context:
-        return context
+        return context #TODO return chunks here?
     if context is None:
         return PROMPTS["fail_response"]
     
@@ -908,7 +914,10 @@ async def hybrid_query(
     )
     if len(response)>len(sys_prompt):
         response = response.replace(sys_prompt,'').replace('user','').replace('model','').replace(query,'').replace('<system>','').replace('</system>','').strip()
-    return response
+    if query_param.return_with_context:
+        return response, chunks_used
+    else:
+        return response
 
 def combine_contexts(high_level_context, low_level_context):
     # Function to extract entities, relationships, and sources from context strings

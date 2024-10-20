@@ -5,6 +5,7 @@ from datetime import datetime
 from functools import partial
 from typing import Type, cast, Any
 from transformers import AutoModel,AutoTokenizer, AutoModelForCausalLM
+from langchain.schema import Document
 
 from .llm import gpt_4o_complete, gpt_4o_mini_complete, openai_embedding, hf_model_complete, hf_embedding
 from .operate import (
@@ -85,7 +86,7 @@ class LightRAG:
     llm_model_func: callable = gpt_4o_mini_complete#hf_model_complete#
     llm_model_name: str = 'meta-llama/Llama-3.2-1B-Instruct'#'meta-llama/Llama-3.2-1B'#'google/gemma-2-2b-it'
     llm_model_max_token_size: int = 32768
-    llm_model_max_async: int = 16
+    llm_model_max_async: int = 4 # was 16
 
     # storage
     key_string_value_json_storage_cls: Type[BaseKVStorage] = JsonKVStorage
@@ -104,7 +105,7 @@ class LightRAG:
         logger.info(f"Logger initialized for working directory: {self.working_dir}")
         
         _print_config = ",\n  ".join([f"{k} = {v}" for k, v in asdict(self).items()])
-        logger.debug(f"LightRAG init with param:\n  {_print_config}\n")
+        logger.debug(f"LOCAL LightRAG init with param:\n  {_print_config}\n")
 
         if not os.path.exists(self.working_dir):
             logger.info(f"Creating working directory {self.working_dir}")
@@ -160,20 +161,30 @@ class LightRAG:
         self.llm_model_func = limit_async_func_call(self.llm_model_max_async)(
             partial(self.llm_model_func, hashing_kv=self.llm_response_cache)
         )
-
-    def insert(self, string_or_strings):
+    
+    def insert(self, string_or_strings="", docs=[]):
         loop = always_get_an_event_loop()
-        return loop.run_until_complete(self.ainsert(string_or_strings))
+        return loop.run_until_complete(self.ainsert(string_or_strings,docs))
 
-    async def ainsert(self, string_or_strings):
+    async def ainsert(self,  string_or_strings="", docs=[]):
+        print(len(docs))
         try:
-            if isinstance(string_or_strings, str):
-                string_or_strings = [string_or_strings]
-
-            new_docs = {
-                compute_mdhash_id(c.strip(), prefix="doc-"): {"content": c.strip()}
-                for c in string_or_strings
-            }
+            if(len(docs) > 0):
+                # for doc in docs:
+                #     print(doc.metadata)
+                #     print(doc.page_content[:200])
+                new_docs = {
+                    compute_mdhash_id(c.page_content.strip(), prefix="doc-"): {"content": c.page_content.strip(), "metadata":c.metadata}
+                    for c in docs
+                }
+            else: 
+                if isinstance(string_or_strings, str):
+                    string_or_strings = [string_or_strings]
+                    
+                new_docs = {
+                    compute_mdhash_id(c.strip(), prefix="doc-"): {"content": c.strip()}
+                    for c in string_or_strings
+                }
             _add_doc_keys = await self.full_docs.filter_keys(list(new_docs.keys()))
             new_docs = {k: v for k, v in new_docs.items() if k in _add_doc_keys}
             if not len(new_docs):
@@ -187,6 +198,7 @@ class LightRAG:
                     compute_mdhash_id(dp["content"], prefix="chunk-"): {
                         **dp,
                         "full_doc_id": doc_key,
+                        "parent_metadata": doc.get("metadata", {})
                     }
                     for dp in chunking_by_token_size(
                         doc["content"],
@@ -269,15 +281,26 @@ class LightRAG:
                 asdict(self),
             )
         elif param.mode == "hybrid":
-            response = await hybrid_query(
-                query,
-                self.chunk_entity_relation_graph,
-                self.entities_vdb,
-                self.relationships_vdb,
-                self.text_chunks,
-                param,
-                asdict(self),
-            )
+            if param.return_with_context:
+                response, context = await hybrid_query(
+                    query,
+                    self.chunk_entity_relation_graph,
+                    self.entities_vdb,
+                    self.relationships_vdb,
+                    self.text_chunks,
+                    param,
+                    asdict(self),
+                )
+            else:
+                response = await hybrid_query(
+                    query,
+                    self.chunk_entity_relation_graph,
+                    self.entities_vdb,
+                    self.relationships_vdb,
+                    self.text_chunks,
+                    param,
+                    asdict(self),
+                )
         elif param.mode == "naive":
             response = await naive_query(
                 query,
@@ -289,6 +312,8 @@ class LightRAG:
         else:
             raise ValueError(f"Unknown mode {param.mode}")
         await self._query_done()
+        if param.return_with_context:
+            return response, context
         return response
     
 
