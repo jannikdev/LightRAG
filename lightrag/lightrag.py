@@ -57,12 +57,12 @@ class LightRAG:
     )
 
     # text chunking
-    chunk_token_size: int = 1200
-    chunk_overlap_token_size: int = 100
+    chunk_token_size: int = 1200 #was 1200
+    chunk_overlap_token_size: int = 100 #was 100
     tiktoken_model_name: str = "gpt-4o-mini"
 
     # entity extraction
-    entity_extract_max_gleaning: int = 1
+    entity_extract_max_gleaning: int = 2 # was 1, how many loops should max be run to extract entities from a text? Wether loops are needed are determined by llm
     entity_summary_to_max_tokens: int = 500
 
     # node embedding

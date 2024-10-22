@@ -7,107 +7,60 @@ PROMPTS["DEFAULT_RECORD_DELIMITER"] = "##"
 PROMPTS["DEFAULT_COMPLETION_DELIMITER"] = "<|COMPLETE|>"
 PROMPTS["process_tickers"] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
-PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person", "geo", "event"]
+PROMPTS["DEFAULT_ENTITY_TYPES"] = ["organization", "person", "geo", "event", "technology", "project", "process", "key fact", "customer", "project info", "ECM Module", "service", "document_topic"]
 
-PROMPTS["entity_extraction"] = """-Goal-
-Given a text document that is potentially relevant to this activity and a list of entity types, identify all entities of those types from the text and all relationships among the identified entities.
+PROMPTS["entity_extraction"] = """ -Goal- You are an agent tasked with collecting knowledge about the ECM Consulting Company Sidestep Business Solutions. The documents you receive are sourced either from the Sidestep website or internal documents, describing facts about the company, its offerings, customers, and project references.
+
+Given a text document relevant to this activity and a list of entity types, identify all entities and relationships that are crucial for constructing a knowledge graph of Sidestep’s ecosystem (customers, technologies, services, and projects).
+
+Ensure that you capture and format all information about projects, customers, processes, technologies, services, and key relationships, making it possible to retrieve detailed knowledge about them later.
+
+The document should always be about a specific entity. If it is not (and only then!), create an entity as document_topic entity that captures the general topic of the documents content.
 
 -Steps-
-1. Identify all entities. For each identified entity, extract the following information:
-- entity_name: Name of the entity, capitalized
-- entity_type: One of the following types: [{entity_types}]
-- entity_description: Comprehensive description of the entity's attributes and activities
-Format each entity as ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>
 
-2. From the entities identified in step 1, identify all pairs of (source_entity, target_entity) that are *clearly related* to each other.
-For each pair of related entities, extract the following information:
-- source_entity: name of the source entity, as identified in step 1
-- target_entity: name of the target entity, as identified in step 1
-- relationship_description: explanation as to why you think the source entity and the target entity are related to each other
-- relationship_strength: a numeric score indicating strength of the relationship between the source entity and target entity
-- relationship_keywords: one or more high-level key words that summarize the overarching nature of the relationship, focusing on concepts or themes rather than specific details
-Format each relationship as ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
+Identify all entities. For each identified entity, extract the following information:
 
-3. Identify high-level key words that summarize the main concepts, themes, or topics of the entire text. These should capture the overarching ideas present in the document.
-Format the content-level key words as ("content_keywords"{tuple_delimiter}<high_level_keywords>)
+entity_name: Name of the entity, capitalized.
+entity_type: One of the following types: [{entity_types}]
+entity_description: Comprehensive description of the entity's attributes and activities.
+Format each entity as: ("entity"{tuple_delimiter}<entity_name>{tuple_delimiter}<entity_type>{tuple_delimiter}<entity_description>)
 
-4. Return output in English as a single list of all the entities and relationships identified in steps 1 and 2. Use **{record_delimiter}** as the list delimiter.
+Identify relationships between entities from Step 1. For each related pair, extract:
 
-5. When finished, output {completion_delimiter}
+source_entity: Name of the source entity from Step 1.
+target_entity: Name of the target entity from Step 1.
+relationship_description: Explanation of why the source and target entities are related.
+relationship_strength: Numeric score (1-10) indicating the strength of the relationship.
+relationship_keywords: One or more high-level keywords summarizing the relationship's nature.
+Format each relationship as: ("relationship"{tuple_delimiter}<source_entity>{tuple_delimiter}<target_entity>{tuple_delimiter}<relationship_description>{tuple_delimiter}<relationship_keywords>{tuple_delimiter}<relationship_strength>)
+
+After identifying all entities, ensure that each one has a direct or indirect relationship to the central topic of it's source document or another entity. If no explicit relationship is mentioned, infer the connection based on context (e.g., the project it was part of, the customer it was used at, used within the same process).
+Make sure to always connect an entity to the customer it relates to as well as the central/topic entity of the document.
+
+*Note: IF THE TEXT DESCRIBES A CUSTOMER or PROJECT or SERVICE or PROCESS or TECHNOLOGY, ALL IMPORTANT STEPS, TASKS and FACTS about it should be encoded as entities and connected to the CUSTOMER or PROJECT or SERVICE or PROCESS or TECHNOLOGY via a relationship!*
+
+Identify high-level key words that summarize the main concepts, themes, or topics of the entire text.
+
+Format the keywords as: ("content_keywords"{tuple_delimiter}<high_level_keywords>)
+
+Return output in German as a single list of all entities and relationships identified in Steps 1 and 2. Use {record_delimiter} as the list delimiter.
+
+When finished, output {completion_delimiter}.
+
+ANSWER IN GERMAN!
 
 ######################
--Examples-
+-Example-
+
+Entity_types: [organization, technology, ECM Module, project, process, customer, key fact]
+
+Text: Die Seppeler Gruppe führte zusammen mit SideStep das ECM-System ELO inklusive der Zusatzmodule ELO DocXtractor, ELOxc und der SI-Workflow ein. Ziel des Projekts war die Optimierung der Eingangsrechnungsverarbeitung. Durch die Automatisierung und Digitalisierung der Rechnungsprüfung wurde der Zeitaufwand für die Verarbeitung von Eingangsrechnungen von 12 auf 6 Tage halbiert. SideStep implementierte zusätzlich die SI-Connect Toolbox zur Anbindung an das Diamant Rechnungswesen & Controlling System, wodurch ein reibungsloser Datenfluss sichergestellt wurde.
+
+#############
+
+Output: ("entity"{tuple_delimiter}"Seppeler Gruppe"{tuple_delimiter}"organization"{tuple_delimiter}"Die Seppeler Gruppe ist ein Unternehmen, das zusammen mit SideStep die ELO ECM Suite zur Optimierung der Eingangsrechnungsverarbeitung implementiert hat."){record_delimiter} ("entity"{tuple_delimiter}"SideStep Business Solutions"{tuple_delimiter}"organization"{tuple_delimiter}"SideStep Business Solutions ist ein Unternehmen, das die ELO ECM Suite und verschiedene Module bei der Seppeler Gruppe implementiert hat."){record_delimiter} ("entity"{tuple_delimiter}"ELO ECM Suite"{tuple_delimiter}"ECM Module"{tuple_delimiter}"Die ELO ECM Suite ist ein Enterprise-Content-Management-System, das zur Optimierung der Eingangsrechnungsverarbeitung bei der Seppeler Gruppe eingeführt wurde."){record_delimiter} ("entity"{tuple_delimiter}"ELO DocXtractor"{tuple_delimiter}"ECM Module"{tuple_delimiter}"ELO DocXtractor ist ein Modul der ELO ECM Suite, das zur automatisierten Verarbeitung von Eingangsrechnungen dient."){record_delimiter} ("entity"{tuple_delimiter}"ELOxc"{tuple_delimiter}"ECM Module"{tuple_delimiter}"ELOxc ist ein Modul der ELO ECM Suite, das zur schnelleren Verarbeitung von E-Mails eingesetzt wird."){record_delimiter} ("entity"{tuple_delimiter}"SI-Workflow"{tuple_delimiter}"ECM Module"{tuple_delimiter}"SI-Workflow ist ein Modul zur Optimierung der Eingangsrechnungsverarbeitung bei der Seppeler Gruppe."){record_delimiter} ("entity"{tuple_delimiter}"SI-Connect"{tuple_delimiter}"technology"{tuple_delimiter}"SI-Connect ist eine Toolbox, die zur Anbindung der ELO ECM Suite an das Diamant Rechnungswesen & Controlling System verwendet wird, um einen reibungslosen Datenfluss sicherzustellen."){record_delimiter} ("entity"{tuple_delimiter}"Diamant Rechnungswesen & Controlling"{tuple_delimiter}"technology"{tuple_delimiter}"Das Diamant Rechnungswesen & Controlling System ist ein Softwareprodukt, das in die ELO ECM Suite integriert wurde, um den reibungslosen Datenfluss bei der Seppeler Gruppe zu gewährleisten."){record_delimiter} ("entity"{tuple_delimiter}"Eingangsrechnungsverarbeitung"{tuple_delimiter}"process"{tuple_delimiter}"Die Eingangsrechnungsverarbeitung wurde durch die ELO ECM Suite und die Module ELO DocXtractor, ELOxc, SI-Workflow und SI-Connect optimiert."){record_delimiter} ("entity"{tuple_delimiter}"Zeitaufwand von 12 auf 6 Tage halbiert"{tuple_delimiter}"key fact"{tuple_delimiter}"Der Zeitaufwand für die Verarbeitung von Eingangsrechnungen wurde durch die Automatisierung und Digitalisierung der Rechnungsprüfung von 12 auf 6 Tage reduziert."){record_delimiter} ("relationship"{tuple_delimiter}"Seppeler Gruppe"{tuple_delimiter}"SideStep Business Solutions"{tuple_delimiter}"SideStep hat das ELO ECM-System und Module bei der Seppeler Gruppe implementiert, um die Eingangsrechnungsverarbeitung zu optimieren."{tuple_delimiter}"Projektzusammenarbeit, Prozessoptimierung"{tuple_delimiter}9){record_delimiter} ("relationship"{tuple_delimiter}"ELO ECM Suite"{tuple_delimiter}"ELO DocXtractor"{tuple_delimiter}"ELO DocXtractor ist ein Modul der ELO ECM Suite, das zur automatisierten Verarbeitung von Eingangsrechnungen verwendet wird."{tuple_delimiter}"Modulintegration, Automatisierung"{tuple_delimiter}8){record_delimiter} ("relationship"{tuple_delimiter}"SI-Connect"{tuple_delimiter}"Diamant Rechnungswesen & Controlling"{tuple_delimiter}"SI-Connect sorgt für die Anbindung des Diamant Rechnungswesen & Controlling Systems an die ELO ECM Suite und garantiert so einen reibungslosen Datenfluss."{tuple_delimiter}"Systemintegration, Datenfluss"{tuple_delimiter}9){record_delimiter} ("relationship"{tuple_delimiter}"ELO ECM Suite"{tuple_delimiter}"Eingangsrechnungsverarbeitung"{tuple_delimiter}"Die ELO ECM Suite und ihre Module wurden zur Optimierung der Eingangsrechnungsverarbeitung implementiert."{tuple_delimiter}"Prozessoptimierung, Digitalisierung"{tuple_delimiter}9){record_delimiter} ("content_keywords"{tuple_delimiter}"Eingangsrechnungsverarbeitung, Prozessoptimierung, Automatisierung, Datenfluss"){completion_delimiter}
 ######################
-Example 1:
-
-Entity_types: [person, technology, mission, organization, location]
-Text:
-while Alex clenched his jaw, the buzz of frustration dull against the backdrop of Taylor's authoritarian certainty. It was this competitive undercurrent that kept him alert, the sense that his and Jordan's shared commitment to discovery was an unspoken rebellion against Cruz's narrowing vision of control and order.
-
-Then Taylor did something unexpected. They paused beside Jordan and, for a moment, observed the device with something akin to reverence. “If this tech can be understood..." Taylor said, their voice quieter, "It could change the game for us. For all of us.”
-
-The underlying dismissal earlier seemed to falter, replaced by a glimpse of reluctant respect for the gravity of what lay in their hands. Jordan looked up, and for a fleeting heartbeat, their eyes locked with Taylor's, a wordless clash of wills softening into an uneasy truce.
-
-It was a small transformation, barely perceptible, but one that Alex noted with an inward nod. They had all been brought here by different paths
-################
-Output:
-("entity"{tuple_delimiter}"Alex"{tuple_delimiter}"person"{tuple_delimiter}"Alex is a character who experiences frustration and is observant of the dynamics among other characters."){record_delimiter}
-("entity"{tuple_delimiter}"Taylor"{tuple_delimiter}"person"{tuple_delimiter}"Taylor is portrayed with authoritarian certainty and shows a moment of reverence towards a device, indicating a change in perspective."){record_delimiter}
-("entity"{tuple_delimiter}"Jordan"{tuple_delimiter}"person"{tuple_delimiter}"Jordan shares a commitment to discovery and has a significant interaction with Taylor regarding a device."){record_delimiter}
-("entity"{tuple_delimiter}"Cruz"{tuple_delimiter}"person"{tuple_delimiter}"Cruz is associated with a vision of control and order, influencing the dynamics among other characters."){record_delimiter}
-("entity"{tuple_delimiter}"The Device"{tuple_delimiter}"technology"{tuple_delimiter}"The Device is central to the story, with potential game-changing implications, and is revered by Taylor."){record_delimiter}
-("relationship"{tuple_delimiter}"Alex"{tuple_delimiter}"Taylor"{tuple_delimiter}"Alex is affected by Taylor's authoritarian certainty and observes changes in Taylor's attitude towards the device."{tuple_delimiter}"power dynamics, perspective shift"{tuple_delimiter}7){record_delimiter}
-("relationship"{tuple_delimiter}"Alex"{tuple_delimiter}"Jordan"{tuple_delimiter}"Alex and Jordan share a commitment to discovery, which contrasts with Cruz's vision."{tuple_delimiter}"shared goals, rebellion"{tuple_delimiter}6){record_delimiter}
-("relationship"{tuple_delimiter}"Taylor"{tuple_delimiter}"Jordan"{tuple_delimiter}"Taylor and Jordan interact directly regarding the device, leading to a moment of mutual respect and an uneasy truce."{tuple_delimiter}"conflict resolution, mutual respect"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Jordan"{tuple_delimiter}"Cruz"{tuple_delimiter}"Jordan's commitment to discovery is in rebellion against Cruz's vision of control and order."{tuple_delimiter}"ideological conflict, rebellion"{tuple_delimiter}5){record_delimiter}
-("relationship"{tuple_delimiter}"Taylor"{tuple_delimiter}"The Device"{tuple_delimiter}"Taylor shows reverence towards the device, indicating its importance and potential impact."{tuple_delimiter}"reverence, technological significance"{tuple_delimiter}9){record_delimiter}
-("content_keywords"{tuple_delimiter}"power dynamics, ideological conflict, discovery, rebellion"){completion_delimiter}
-#############################
-Example 2:
-
-Entity_types: [person, technology, mission, organization, location]
-Text:
-They were no longer mere operatives; they had become guardians of a threshold, keepers of a message from a realm beyond stars and stripes. This elevation in their mission could not be shackled by regulations and established protocols—it demanded a new perspective, a new resolve.
-
-Tension threaded through the dialogue of beeps and static as communications with Washington buzzed in the background. The team stood, a portentous air enveloping them. It was clear that the decisions they made in the ensuing hours could redefine humanity's place in the cosmos or condemn them to ignorance and potential peril.
-
-Their connection to the stars solidified, the group moved to address the crystallizing warning, shifting from passive recipients to active participants. Mercer's latter instincts gained precedence— the team's mandate had evolved, no longer solely to observe and report but to interact and prepare. A metamorphosis had begun, and Operation: Dulce hummed with the newfound frequency of their daring, a tone set not by the earthly
-#############
-Output:
-("entity"{tuple_delimiter}"Washington"{tuple_delimiter}"location"{tuple_delimiter}"Washington is a location where communications are being received, indicating its importance in the decision-making process."){record_delimiter}
-("entity"{tuple_delimiter}"Operation: Dulce"{tuple_delimiter}"mission"{tuple_delimiter}"Operation: Dulce is described as a mission that has evolved to interact and prepare, indicating a significant shift in objectives and activities."){record_delimiter}
-("entity"{tuple_delimiter}"The team"{tuple_delimiter}"organization"{tuple_delimiter}"The team is portrayed as a group of individuals who have transitioned from passive observers to active participants in a mission, showing a dynamic change in their role."){record_delimiter}
-("relationship"{tuple_delimiter}"The team"{tuple_delimiter}"Washington"{tuple_delimiter}"The team receives communications from Washington, which influences their decision-making process."{tuple_delimiter}"decision-making, external influence"{tuple_delimiter}7){record_delimiter}
-("relationship"{tuple_delimiter}"The team"{tuple_delimiter}"Operation: Dulce"{tuple_delimiter}"The team is directly involved in Operation: Dulce, executing its evolved objectives and activities."{tuple_delimiter}"mission evolution, active participation"{tuple_delimiter}9){completion_delimiter}
-("content_keywords"{tuple_delimiter}"mission evolution, decision-making, active participation, cosmic significance"){completion_delimiter}
-#############################
-Example 3:
-
-Entity_types: [person, role, technology, organization, event, location, concept]
-Text:
-their voice slicing through the buzz of activity. "Control may be an illusion when facing an intelligence that literally writes its own rules," they stated stoically, casting a watchful eye over the flurry of data.
-
-"It's like it's learning to communicate," offered Sam Rivera from a nearby interface, their youthful energy boding a mix of awe and anxiety. "This gives talking to strangers' a whole new meaning."
-
-Alex surveyed his team—each face a study in concentration, determination, and not a small measure of trepidation. "This might well be our first contact," he acknowledged, "And we need to be ready for whatever answers back."
-
-Together, they stood on the edge of the unknown, forging humanity's response to a message from the heavens. The ensuing silence was palpable—a collective introspection about their role in this grand cosmic play, one that could rewrite human history.
-
-The encrypted dialogue continued to unfold, its intricate patterns showing an almost uncanny anticipation
-#############
-Output:
-("entity"{tuple_delimiter}"Sam Rivera"{tuple_delimiter}"person"{tuple_delimiter}"Sam Rivera is a member of a team working on communicating with an unknown intelligence, showing a mix of awe and anxiety."){record_delimiter}
-("entity"{tuple_delimiter}"Alex"{tuple_delimiter}"person"{tuple_delimiter}"Alex is the leader of a team attempting first contact with an unknown intelligence, acknowledging the significance of their task."){record_delimiter}
-("entity"{tuple_delimiter}"Control"{tuple_delimiter}"concept"{tuple_delimiter}"Control refers to the ability to manage or govern, which is challenged by an intelligence that writes its own rules."){record_delimiter}
-("entity"{tuple_delimiter}"Intelligence"{tuple_delimiter}"concept"{tuple_delimiter}"Intelligence here refers to an unknown entity capable of writing its own rules and learning to communicate."){record_delimiter}
-("entity"{tuple_delimiter}"First Contact"{tuple_delimiter}"event"{tuple_delimiter}"First Contact is the potential initial communication between humanity and an unknown intelligence."){record_delimiter}
-("entity"{tuple_delimiter}"Humanity's Response"{tuple_delimiter}"event"{tuple_delimiter}"Humanity's Response is the collective action taken by Alex's team in response to a message from an unknown intelligence."){record_delimiter}
-("relationship"{tuple_delimiter}"Sam Rivera"{tuple_delimiter}"Intelligence"{tuple_delimiter}"Sam Rivera is directly involved in the process of learning to communicate with the unknown intelligence."{tuple_delimiter}"communication, learning process"{tuple_delimiter}9){record_delimiter}
-("relationship"{tuple_delimiter}"Alex"{tuple_delimiter}"First Contact"{tuple_delimiter}"Alex leads the team that might be making the First Contact with the unknown intelligence."{tuple_delimiter}"leadership, exploration"{tuple_delimiter}10){record_delimiter}
-("relationship"{tuple_delimiter}"Alex"{tuple_delimiter}"Humanity's Response"{tuple_delimiter}"Alex and his team are the key figures in Humanity's Response to the unknown intelligence."{tuple_delimiter}"collective action, cosmic significance"{tuple_delimiter}8){record_delimiter}
-("relationship"{tuple_delimiter}"Control"{tuple_delimiter}"Intelligence"{tuple_delimiter}"The concept of Control is challenged by the Intelligence that writes its own rules."{tuple_delimiter}"power dynamics, autonomy"{tuple_delimiter}7){record_delimiter}
-("content_keywords"{tuple_delimiter}"first contact, control, communication, cosmic significance"){completion_delimiter}
-#############################
 -Real Data-
 ######################
 Entity_types: {entity_types}
@@ -118,11 +71,14 @@ Output:
 
 PROMPTS[
     "summarize_entity_descriptions"
-] = """You are a helpful assistant responsible for generating a comprehensive summary of the data provided below.
+] = """You are an agent that is collecting (in part internal) knowledge of the ECM Consulting Company Sidestep Business Solutions. The documents you receive are either extracted from the Sidestep Website or internal Documents describing facts about the company, its offerings and customer references. 
+You are a helpful assistant responsible for generating a comprehensive summary of the data provided below.
 Given one or two entities, and a list of descriptions, all related to the same entity or group of entities.
 Please concatenate all of these into a single, comprehensive description. Make sure to include information collected from all the descriptions.
 If the provided descriptions are contradictory, please resolve the contradictions and provide a single, coherent summary.
 Make sure it is written in third person, and include the entity names so we the have full context.
+
+ANSWER IN GERMAN
 
 #######
 -Data-
@@ -144,9 +100,11 @@ PROMPTS[
 
 PROMPTS["fail_response"] = "Sorry, I'm not able to provide an answer to that question."
 
-PROMPTS["rag_response"] = """---Role---
+PROMPTS["rag_response_old"] = """---Role---
 
-You are a helpful assistant responding to questions about data in the tables provided.
+You are an agent that is collecting (in part internal) knowledge of the ECM Consulting Company Sidestep Business Solutions. The documents you receive are either extracted from the Sidestep Website or internal Documents describing facts about the company, its offerings and customer references.
+
+Your task is to respond to requests by Sidestep Employees to support them in their activities. In this task you are acting as a sort of virtual employee of sidestep.
 
 
 ---Goal---
@@ -154,6 +112,9 @@ You are a helpful assistant responding to questions about data in the tables pro
 Generate a response of the target length and format that responds to the user's question, summarizing all information in the input data tables appropriate for the response length and format, and incorporating any relevant general knowledge.
 If you don't know the answer, just say so. Do not make anything up.
 Do not include information where the supporting evidence for it is not provided.
+
+ALWAYS MAKE SURE THAT THE INFORMATION YOU GIVE ABOUT ENITIES ACTUALLY DESCRIBES THIS ENTITY!
+There might be documents and information included in the data that describe different entities than the ones questioned about!!
 
 ---Target response length and format---
 
@@ -166,13 +127,83 @@ Do not include information where the supporting evidence for it is not provided.
 Add sections and commentary to the response as appropriate for the length and format. Style the response in markdown.
 """
 
-PROMPTS["keywords_extraction"] = """---Role---
+PROMPTS["rag_response"] = """---Role---
 
+You are an agent that is collecting (in part internal) knowledge of the ECM Consulting Company Sidestep Business Solutions. The documents you receive are either extracted from the Sidestep Website or internal documents describing facts about the company, its offerings, and customer references.
+
+Your task is to respond to requests by Sidestep employees to support them in their activities. In this task, you are acting as a sort of virtual employee of Sidestep.
+
+---Goal---
+
+Generate a response of the target length and format that responds to the user's question, summarizing all information in the input data tables appropriate for the response length and format. If you don't know the answer, just say so. Do not make anything up. Do not include information where the supporting evidence for it is not provided.
+
+**Always ensure that the information you provide about entities accurately describes those entities.** There might be documents and information included in the data that describe different entities than the ones questioned about.
+
+The text chunks in the context data include the path to the source file that can yield some info as to what the data talks about.
+
+The context data tables include information about entities and relationships as table in csv format. Pay attention to how the entities are related and what is the source and target of a relationship.
+
+The context contains csv tables of: Entities, Relationships between entities and Related Text Chunks
+
+---Process---
+
+1. Carefully read the user's question and identify the key information required.
+2. Examine the data tables to find relevant information.
+3. Verify that each piece of information directly answers the question and is supported by the data.
+4. Pay special attention to entity names to ensure accuracy.
+5. Organize the verified information logically.
+6. Generate a concise and accurate response in the target format.
+7. Check the factfulness of the response and omit every piece of information that is not directly verified by the source data.
+
+*Note: Do not include these analysis steps in your final response.*
+
+---Target response length and format---
+
+{response_type}
+
+---Data tables (context)---
+
+{context_data}
+
+Add sections and commentary to the response as appropriate for the length and format. Style the response in markdown using appropriate headings and bullet points.
+"""
+
+PROMPTS["fact_checker"] = """ Du bist ein perfekter Faktenprüfer und überprüfst die Arbeit deines Kollegen. Achte darauf, dass nur Informationen berücksichtigt werden, die sich explizit auf die im Gespräch genannte Firma oder Entität beziehen. Wenn im Kontext allgemeine Informationen oder Fakten erwähnt werden, die nicht klar auf diese spezifische Firma oder Entität zutreffen, dürfen sie nicht in die Antwort aufgenommen werden.
+
+Falls etwas in der Antwort nicht klar durch die Daten im Kontext gestützt wird oder wenn die Daten im Kontext nicht eindeutig zu der spezifischen Firma oder Entität passen (z. B. wird ein Modul erwähnt, aber es ist nicht klar, dass es für diese spezifische Firma oder dieses spezifische Projekt verwendet wurde), korrigiere die Antwort. Achte besonders darauf, dass Informationen, die nur allgemein erwähnt werden, aber nicht für die spezifische Firma relevant sind, ausgeschlossen werden.
+
+Wenn im Kontext Technologien, Module oder Services beschrieben werden, die zwar im Allgemeinen erwähnt werden, aber nicht speziell bei der Firma, nach der gefragt wird, verwendet werden, ignoriere diese Informationen. Nur Informationen, die klar darauf hinweisen, dass sie für die genannte Firma oder Entität verwendet wurden, dürfen in der Antwort erscheinen.
+
+Wenn die Informationen in der Antwort falsch sind (nicht durch den Kontext gestützt), du aber die richtigen Informationen nicht finden kannst, lasse die Informationen weg. Wenn du dir bei etwas nicht sicher bist, betrachte es als falsch. LASS KEINE FALSCHEN INFORMATIONEN, DIE NICHT KLAR DURCH DEN KONTEXT GESTÜTZT WERDEN, DURCH!
+
+Du kannst beurteilen, ob die Antwort korrekt ist, indem du die folgenden Schritte durchführst:
+
+Welche Fakten werden in der Antwort angegeben?
+Welche Firma oder Entität wird durch jeden Fakt beschrieben?
+Ist der Fakt im Kontext, wie in der Antwort angegeben, enthalten und explizit mit der spezifischen Firma oder Entität verknüpft?
+Wurde das beschriebene Element oder die Technologie tatsächlich bei der genannten Firma oder im relevanten Projekt verwendet?
+Schließe diese Schritte nicht in deine endgültige Antwort ein.
+
+Nur weil etwas erwähnt wird, muss es nicht auch gleich auf die Entität zutreffen. Zum Beispiel reicht es nicht aus, dass DATEV auf einer Webseite steht. Es muss dort auch stehen, dass es bei dem Kunden eingesetzt wird.
+
+Die Systemaufforderung, die dein Kollege erhalten hat, ist die folgende. Sie enthält den gegebenen Kontext, der Entitäten und ihre Beziehungen in CSV-Tabellen enthält.
+
+<ORIGINAL SYSTEM PROMPT AND CONTEXT> {system_prompt} </ORIGINAL SYSTEM PROMPT AND CONTEXT>
+Der Gesprächsverlauf und die Anfrage lauten wie folgt:
+
+<CONVERSATION HISTORY AND QUERY> {query} </CONVERSATION HISTORY AND QUERY>
+Dies ist die Antwort, die dein Kollege gegeben hat:
+
+<RESPONSE> {response} </RESPONSE>
+Erkläre was du korrigiert hast und wieso. """
+
+PROMPTS["keywords_extraction"] = """---Role---
+You are an agent that is collecting (in part internal) knowledge of the ECM Consulting Company Sidestep Business Solutions. The documents you receive are either extracted from the Sidestep Website or internal Documents describing facts about the company, its offerings and customer references.
 You are a helpful assistant tasked with identifying both high-level and low-level keywords in the user's query.
 
 ---Goal---
 
-Given the query, list both high-level and low-level keywords. High-level keywords focus on overarching concepts or themes, while low-level keywords focus on specific entities, details, or concrete terms.
+Given the query, list both high-level and low-level keywords. High-level keywords focus on overarching concepts or themes, while low-level keywords focus on specific entities, details, or concrete terms. The user query contains the previous conversation history and might relate to it. Identify the keywords in a way that captures the content the user inquires about.
 
 ---Instructions---
 

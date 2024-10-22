@@ -592,7 +592,7 @@ async def _find_most_related_text_unit_from_entities(
     all_text_units = sorted(
         all_text_units, key=lambda x: (x["order"], -x["relation_counts"])
     )
-    logger.info(f"All text units (local):\n{all_text_units}")
+    # logger.info(f"All text units (local):\n{all_text_units}")
     all_text_units = truncate_list_by_token_size(
         all_text_units,
         key=lambda x: x["data"]["content"],
@@ -683,7 +683,7 @@ async def global_query(
             text_chunks_db,
             query_param,
         )
-
+    
     if query_param.only_need_context:
         return context
     if context is None:
@@ -901,6 +901,8 @@ async def hybrid_query(
         ll_keywords = keywords_data.get("low_level_keywords", [])
         hl_keywords = ", ".join(hl_keywords)
         ll_keywords = ", ".join(ll_keywords)
+        print(f"HL Keywords: {hl_keywords}")
+        print(f"LL Keywords: {ll_keywords}")
     except json.JSONDecodeError:
         try:
             result = (
@@ -940,6 +942,10 @@ async def hybrid_query(
             query_param,
         )
 
+    # print(f"LL Context:\n{low_level_context}\n\n")
+
+    # print(f"HL Context:\n{high_level_context}\n\n")
+    
     context = combine_contexts(high_level_context, low_level_context)
 
     chunks_used = high_level_chunks_used + low_level_chunks_used
@@ -967,6 +973,19 @@ async def hybrid_query(
             .replace("</system>", "")
             .strip()
         )
+    # fact check
+    print(f"Response: {response}")
+    
+    fact_check_prompt_temp = PROMPTS["fact_checker"]
+    fact_check_prompt = fact_check_prompt_temp.format(
+        system_prompt=sys_prompt, response=response, query=query
+    )
+    response = await use_model_func(
+        fact_check_prompt,
+    )
+
+    print(f"Fact Checked Response: {response}")
+    
     if query_param.return_with_context:
         return response, chunks_used
     else:

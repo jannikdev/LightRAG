@@ -19,10 +19,10 @@ class QueryParam:
     only_need_context: bool = False
     return_with_context: bool = False
     response_type: str = "Multiple Paragraphs"
-    top_k: int = 60
+    top_k: int = 60 # was 60
     max_token_for_text_unit: int = 4000
-    max_token_for_global_context: int = 4000
-    max_token_for_local_context: int = 4000
+    max_token_for_global_context: int = 4000 # was 4000
+    max_token_for_local_context: int = 4000 # was 4000
 
 
 @dataclass
